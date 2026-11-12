@@ -66,3 +66,21 @@ analysis/report.py     plots and results table
 - The AST sandbox is a guard rail, not a security boundary. Only run code from LLMs you trust.
 
 See `analysis/RESULTS.md` for results.
+
+## Results (first run, 12 Nov 2026: 30 trained candidates per strategy, local qwen2.5-coder:3b on CPU)
+| | LLM-guided (3B) | Random search |
+|---|---|---|
+| proposals / trained | 46 / 30 | 33 / 30 |
+| valid-proposal rate | 59% | 85% |
+| best proxy val acc | 0.667 (298K params) | 0.691 (628K params) |
+| median proxy val acc | **0.598** | 0.569 |
+| best **test** acc after 20-epoch full training | 89.3% (298K, ~75 s) | **92.7%** (801K, ~19 min) |
+
+**Findings**
+- **A 3B local model is too weak to beat random search** on best-found accuracy. Its median candidate is better (0.598 vs. 0.569) because it stays close to good parents. But only 2 of 27 children beat their parent, and it mostly repeated one idea ("add depthwise-separable conv"). Most failures were duplicates or broken code: 9 duplicates, 8 runtime errors, and 41 repair calls.
+- **Mode collapse:** the LLM's ideas converged on a single mutation. Random search explored wider inverted-residual + SE models that use the parameter budget much better.
+- **The LLM stayed near the cheap seeds.** It never used more than ~300K of the 1M-parameter budget, while the best random models used 600–800K.
+- **The proxy ranking held up** at full training: the proxy-best model in each run was also the full-training best, or close to it.
+- **Pipeline cost:** about 140 s of CPU LLM time per proposal. This is hidden by the asynchronous design (the LLM writes the next candidate while the GPU trains the current one).
+
+**Next steps:** larger or API models (`llm.backend=openai`); show the parameter-budget headroom explicitly in the prompt; a novelty penalty or MAP-Elites archive to fight mode collapse; the `llm_noscore` and `zeroshot` ablations; 3 seeds per strategy.
