@@ -1,0 +1,57 @@
+﻿# LLM-guided NAS on CIFAR-10 (tuned for a 6 GB RTX 4050 laptop GPU)
+seed: 0
+device: cuda
+
+task:
+  num_classes: 10
+  data_root: data
+  val_size: 5000          # held out from the 50k train set; used for search. Test set is used only in final.py
+
+constraints:
+  max_params: 1000000
+  max_mflops: 600         # forward FLOPs per 32x32 image (FlopCounterMode, 2*MACs)
+
+proxy:                    # cheap evaluation used during search
+  epochs: 5
+  train_subset: 10000
+  batch_size: 256
+  lr: 0.003
+  weight_decay: 0.05
+  label_smoothing: 0.1
+  max_seconds: 180        # training wall-clock cap (candidate marked too_slow if exceeded)
+  timeout: 300            # hard subprocess timeout
+
+final:                    # full training of the best candidates
+  epochs: 20
+  train_subset: 0         # 0 = all 45k training images
+  batch_size: 256
+  lr: 0.003
+  weight_decay: 0.05
+  label_smoothing: 0.1
+  max_seconds: 3600
+  timeout: 4000
+  top_k: 2
+
+search:
+  budget: 60              # number of trained candidates (including seeds)
+  prefetch: 1             # LLM proposes the next candidate while the current one trains
+  tournament_size: 3
+  crossover_prob: 0.25
+  max_repairs: 2          # LLM repair attempts per failed proposal
+  leaderboard_size: 8
+  check_timeout: 90       # CPU dry-run (instantiate + forward + params/FLOPs)
+  param_penalty: 0.0      # fitness = val_acc - param_penalty * params / max_params
+  max_proposal_factor: 4  # stop if proposals exceed budget * factor
+
+llm:
+  backend: ollama         # ollama | openai | mock
+  model: qwen2.5-coder:3b
+  base_url: http://localhost:11434          # for openai backend e.g. https://api.openai.com/v1 or https://openrouter.ai/api/v1
+  api_key_env: OPENAI_API_KEY
+  temperature: 0.8
+  max_tokens: 2000
+  num_gpu: 0              # run the LLM on CPU so the GPU is free for training (remove to use GPU)
+  num_thread: 8
+  num_ctx: 8192
+  request_timeout: 600
+

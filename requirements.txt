@@ -1,0 +1,7 @@
+torch>=2.2
+pyyaml
+pyarrow
+pillow
+numpy
+matplotlib
+pytest
