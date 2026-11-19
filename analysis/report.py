@@ -5,6 +5,7 @@
 import argparse
 import json
 import os
+from statistics import median
 
 import matplotlib
 
@@ -49,7 +50,7 @@ def main():
     for e in {e["origin"]: e for e in seeds}.values():
         ax[1].scatter(e["params"] / 1e3, e["val_acc"], marker="*", s=180, c="k")
         ax[1].annotate(e["origin"][5:], (e["params"] / 1e3, e["val_acc"]), fontsize=8, xytext=(4, -10), textcoords="offset points")
-    ax[0].set(xlabel="# candidates trained", ylabel="best proxy val acc", title="Search progress")
+    ax[0].set(xlabel="# proxy-training attempts", ylabel="best proxy val acc", title="Search progress")
     ax[1].set(xlabel="params (K)", ylabel="proxy val acc", title="Accuracy vs. size (stars = hand-designed seeds)")
     for a in ax:
         a.grid(alpha=0.3)
@@ -58,16 +59,17 @@ def main():
     os.makedirs(args.out, exist_ok=True)
     fig.savefig(os.path.join(args.out, "search_progress.png"), dpi=130)
 
-    lines = ["# Results", "", "| run | proposals | trained | valid-rate | best proxy val | median proxy val | best params |",
-             "|---|---|---|---|---|---|---|"]
+    lines = ["# Results", "", "| run | proposals | proxy attempts | completed | completed proposals / proposals | best proxy val | median proxy val | best params |",
+             "|---|---:|---:|---:|---:|---:|---:|---:|"]
     for r, es in data.items():
         ok = [e for e in es if e["status"] == "ok"]
         gen = [e for e in es if not e["origin"].startswith("seed")]
         gen_ok = [e for e in gen if e["status"] == "ok"]
         best = max(ok, key=lambda e: e["val_acc"]) if ok else None
         accs = sorted(e["val_acc"] for e in gen_ok)
-        med = accs[len(accs) // 2] if accs else float("nan")
-        lines.append(f"| {r} | {len(gen)} | {sum(1 for e in es if e.get('trained'))} | "
+        med = median(accs) if accs else float("nan")
+        attempts = sum(1 for e in es if e.get("trained"))
+        lines.append(f"| {r} | {len(gen)} | {attempts} | {len(ok)} | "
                      f"{len(gen_ok) / max(len(gen), 1):.0%} | {best['val_acc']:.4f} | {med:.4f} | {best['params']:,} |")
     lines += ["", "## Failure modes", ""]
     for r, es in data.items():
@@ -78,7 +80,7 @@ def main():
     fpath = os.path.join(ROOT, "runs", "final_results.json")
     if os.path.exists(fpath):
         fr = json.load(open(fpath))
-        lines += ["", "## Full training (test set touched once)", "",
+        lines += ["", "## Finalist training (test evaluated after training for each finalist)", "",
                   "| run#id | origin | params | proxy val | full val | **test** | idea |", "|---|---|---|---|---|---|---|"]
         for k, v in sorted(fr.items(), key=lambda kv: -kv[1].get("test_acc", 0)):
             if v.get("status") == "ok":

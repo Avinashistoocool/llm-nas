@@ -1,16 +1,16 @@
 # Results
 
-| run | proposals | trained | valid-rate | best proxy val | median proxy val | best params |
-|---|---|---|---|---|---|---|
-| llm_qwen3b | 46 | 30 | 59% | 0.6668 | 0.5978 | 298,026 |
-| random | 33 | 30 | 85% | 0.6908 | 0.5692 | 627,870 |
+| run | proposals | proxy attempts | completed | completed proposals / proposals | best proxy val | median proxy val | best params |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| llm_qwen3b | 46 | 30 | 30 | 59% | 0.6668 | 0.5978 | 298,026 |
+| random | 33 | 30 | 28 | 85% | 0.6908 | 0.5675 | 627,870 |
 
 ## Failure modes
 
 - **llm_qwen3b**: duplicate=9, error=8, invalid=2, ok=30
 - **random**: invalid=3, ok=28, too_slow=2
 
-## Full training (test set touched once)
+## Finalist training (test evaluated after training for each finalist)
 
 | run#id | origin | params | proxy val | full val | **test** | idea |
 |---|---|---|---|---|---|---|

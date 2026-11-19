@@ -20,19 +20,20 @@ Proxy training on GPU ◄── CPU dry run + AST checks ◄── candidate PyT
           └──► select top candidates ──► 20-epoch retraining ──► held-out test
 
 Random baseline: sample candidates from a hand-designed architecture space.
-Both strategies use the same checks, budgets, data split, and training recipe.
+Both strategies use the same checks, data split, training recipe and limit of 30 proxy-training attempts.
+They do not share a proposal space, and their runtimes differ.
 ```
 
 The search uses 5 proxy epochs on 10,000 training images and scores candidates on the 5,000-image validation split. It limits each model to 1 million parameters and 600 MFLOPs. The final stage retrains selected candidates on all 45,000 training images and measures accuracy on the held-out test set. See [`configs/cifar10.yaml`](configs/cifar10.yaml) for the exact settings. The LLM runs on the CPU (`num_gpu: 0`); the GPU trains the candidates. The pipeline can request the next proposal while the current candidate trains.
 
 ## Recorded results
 
-One recorded comparison used 30 trained candidates per strategy. **Proxy validation accuracy is not test accuracy.** The proxy results guide search; the final results below come from separate 20-epoch training.
+Each strategy had 30 proxy-training attempts. The LLM run completed 30; the random run completed 28, and 2 exceeded the time limit. **Proxy validation accuracy is not test accuracy.** The proxy results guide search; the final results below come from separate 20-epoch training.
 
-| Strategy | Proposals (excluding seeds) | Trained | Valid proposal rate | Best proxy validation | Median proxy validation, generated valid candidates | Best finalist test accuracy |
+| Strategy | Proposals (excluding seeds) | Proxy attempts | Valid proposal rate | Best proxy validation | Median proxy validation, generated valid candidates | Best finalist test accuracy |
 |---|---:|---:|---:|---:|---:|---:|
 | Ollama Qwen2.5-Coder 3B (`llm_qwen3b`) | 46 | 30 | 59% | 66.68% | 59.78% | 89.34% |
-| Random search (`random`) | 33 | 30 | 85% | 69.08% | 56.92% | **92.72%** |
+| Random search (`random`) | 33 | 30 | 85% | 69.08% | 56.75% | **92.72%** |
 
 | Finalist | Parameters | Proxy validation | 20-epoch validation | 20-epoch held-out test |
 |---|---:|---:|---:|---:|
@@ -41,7 +42,7 @@ One recorded comparison used 30 trained candidates per strategy. **Proxy validat
 | `llm_qwen3b#48` | 298,026 | 66.68% | 89.66% | **89.34%** |
 | `llm_qwen3b#0` (seed) | 288,746 | 66.44% | 89.50% | 88.64% |
 
-The best proxy model did not have the best final test score in the random run. These figures describe **one run**, not a statistically established ranking. The short proxy favors fast-converging models. The random baseline samples a hand-designed space; the LLM edits raw code and can fail checks or repeat proposals. The recorded LLM proposals had a higher median proxy score, but the random run found a stronger final model. More seeds, budgets, and model sizes are needed to assess generality.
+Two proxy-selected finalists per strategy were retrained and tested. The best proxy model did not have the best final test score in the random run. These figures describe **one run**, not a statistically established ranking. The short proxy favors fast-converging models. The random baseline samples a hand-designed space; the LLM edits raw code and can fail checks or repeat proposals. The LLM proposals had a higher median proxy score. The highest finalist test score came from the random run. The random finalist also has 2.7 times more parameters. More seeds, budgets, and model sizes are needed to assess generality.
 
 ![Recorded LLM and random architecture-search outcomes, with the random finalist ahead on held-out test accuracy](analysis/figures/llm-nas-results.png)
 
